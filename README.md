@@ -10,6 +10,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc4
 
 ## Run locally
 
+<img width="960" height="403" alt="Снимок экрана 2026-01-22 042813" src="https://github.com/user-attachments/assets/cca42d72-20c0-4d6b-86f2-fc42059e8a00" />
+
 Follow these steps to run the app on your machine.
 
 ### 1. Prerequisites
@@ -40,3 +42,4 @@ You can get a Gemini API key from https://ai.google.dev.
 ```bash
 npm run dev
 ```
+Created by @FDTiger777
