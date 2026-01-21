@@ -42,4 +42,8 @@ You can get a Gemini API key from https://ai.google.dev.
 ```bash
 npm run dev
 ```
-Created by @FDTiger777
+<p align="center">
+  © Created by <strong><span style="color:#0d47a1;">@FDTiger777</span></strong>
+</p>
+
+
