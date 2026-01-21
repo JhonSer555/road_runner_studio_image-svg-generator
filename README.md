@@ -18,14 +18,17 @@ Follow these steps to run the app on your machine.
 
 ### 2. Clone the repository
 
-
+```bash
 git clone https://github.com/JhonSer555/road_runner_studio_image-svg-generator.git
+```
+```bash
 cd road_runner_studio_image-svg-generator
+```
 
 3. Install dependencies
-
+```bash
 npm install
-
+```
 5. Configure environment variables
 
 Create a file named .env.local in the project root and add your Gemini API key:
@@ -34,5 +37,6 @@ GEMINI_API_KEY=your_gemini_api_key_here
 You can get a Gemini API key from https://ai.google.dev.
 
 5. Run the app
-
+```bash
 npm run dev
+```
