@@ -1,0 +1,5 @@
+{
+  "name": "Road Runner Studio",
+  "description": "A minimalist, AI-powered design studio for Road Runner. Edit images and generate assets using Gemini 2.5 Flash Image.",
+  "requestFramePermissions": []
+}
