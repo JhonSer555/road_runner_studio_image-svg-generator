@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { GoogleGenAI } from "@google/genai";
 import { GenerationResult, ImageAsset } from "../types";
 
@@ -160,7 +161,12 @@ const translateAndEnhancePrompt = async (prompt: string): Promise<string> => {
     const apiKey = storedKey || process.env.API_KEY;
     if (!apiKey) return prompt;
 
-    const baseUrl = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com";
+    // Use direct URL in production (built Electron), use proxy in development
+    const defaultBaseUrl = import.meta.env.PROD
+      ? "https://generativelanguage.googleapis.com"
+      : "/api/gemini";
+
+    const baseUrl = process.env.GEMINI_BASE_URL || defaultBaseUrl;
 
     const systemPrompt = `
       You are an expert AI prompt engineer for Flux and Stable Diffusion.
@@ -233,7 +239,13 @@ export const generateMultimodalImage = async (
     }
 
     const model = "black-forest-labs/FLUX.1-schnell";
-    const url = `/api/huggingface/models/${model}`;
+
+    // Use direct URL in production (built Electron), use proxy in development
+    const baseUrl = import.meta.env.PROD
+      ? "https://router.huggingface.co/hf-inference"
+      : "/api/huggingface";
+
+    const url = `${baseUrl}/models/${model}`;
 
     const response = await fetch(url, {
       method: "POST",
@@ -296,7 +308,10 @@ export const generateSvgWithGemini = async (
     }
 
     // 2. Base URL config
-    const baseUrl = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com";
+    const defaultBaseUrl = import.meta.env.PROD
+      ? "https://generativelanguage.googleapis.com"
+      : "/api/gemini";
+    const baseUrl = process.env.GEMINI_BASE_URL || defaultBaseUrl;
 
     // 3. Собираем parts (как раньше)
     const parts: any[] = [];
