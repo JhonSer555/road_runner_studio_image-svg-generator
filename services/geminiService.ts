@@ -218,9 +218,18 @@ export const generateMultimodalImage = async (
     // Hugging Face Implementation (Flux Schnell via Router)
     // Uses local proxy /api/huggingface to avoid CORS
 
-    const token = process.env.HUGGING_FACE_TOKEN;
+    let hfToken: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        hfToken = window.localStorage.getItem("HF_API_KEY");
+      } catch {
+        // ignore
+      }
+    }
+    const token = hfToken || process.env.HUGGING_FACE_TOKEN;
+
     if (!token) {
-      throw new Error("Hugging Face Token is missing. Please add HUGGING_FACE_TOKEN to your .env file and restart the server.");
+      throw new Error("Hugging Face Token is missing. Please add your token in the settings modal (Key icon in header).");
     }
 
     const model = "black-forest-labs/FLUX.1-schnell";

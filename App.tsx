@@ -19,6 +19,8 @@ import {
   Plus,
   Replace,
   Languages,
+  Zap,
+  KeyRound,
 } from 'lucide-react';
 import Header from './components/Header';
 import LoadingOverlay from './components/LoadingOverlay';
@@ -99,7 +101,10 @@ const App: React.FC = () => {
   // API key modal state
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [hfKeyInput, setHfKeyInput] = useState('');
+  const [modalTab, setModalTab] = useState<'gemini' | 'hf'>('gemini');
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [hfKeySaved, setHfKeySaved] = useState(false);
 
   // Extract SVG if present in generated text and sanitize it
   const svgContent = useMemo(
@@ -107,34 +112,48 @@ const App: React.FC = () => {
     [generatedText]
   );
 
-  // Check for API key on mount
+  // Check for API keys on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const storedKey = window.localStorage.getItem('GEMINI_API_KEY');
-        if (!storedKey) {
+        const storedGeminiKey = window.localStorage.getItem('GEMINI_API_KEY');
+        const storedHfKey = window.localStorage.getItem('HF_API_KEY');
+
+        if (storedGeminiKey) setApiKeyInput(storedGeminiKey);
+        if (storedHfKey) setHfKeyInput(storedHfKey);
+
+        if (!storedGeminiKey || !storedHfKey) {
           setApiKeyModalOpen(true);
-        } else {
-          // предварительно заполняем инпут текущим ключом
-          setApiKeyInput(storedKey);
+          if (storedGeminiKey && !storedHfKey) {
+            setModalTab('hf');
+          }
         }
-      } catch {
+      } catch (err) {
         setApiKeyModalOpen(true);
       }
     }
   }, []);
 
   const handleSaveApiKey = () => {
-    const trimmed = apiKeyInput.trim();
+    const isGemini = modalTab === 'gemini';
+    const input = isGemini ? apiKeyInput : hfKeyInput;
+    const trimmed = input.trim();
+
     if (!trimmed) return;
 
     try {
-      window.localStorage.setItem('GEMINI_API_KEY', trimmed);
-      setApiKeySaved(true);
+      if (isGemini) {
+        window.localStorage.setItem('GEMINI_API_KEY', trimmed);
+        setApiKeySaved(true);
+      } else {
+        window.localStorage.setItem('HF_API_KEY', trimmed);
+        setHfKeySaved(true);
+      }
+
       setTimeout(() => {
-        setApiKeyModalOpen(false);
-        setApiKeySaved(false);
-      }, 1000);
+        if (isGemini) setApiKeySaved(false);
+        else setHfKeySaved(false);
+      }, 1500);
     } catch (err) {
       console.error('Failed to save API key to localStorage', err);
       setErrorMsg(
@@ -861,68 +880,149 @@ const App: React.FC = () => {
 
       {/* API key modal */}
       {apiKeyModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl p-6 relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-slate-900 rounded-3xl border border-slate-700 shadow-2xl p-0 overflow-hidden relative animate-in zoom-in-95 duration-300">
+            {/* Header / Tabs */}
+            <div className="flex border-b border-slate-800">
+              <button
+                onClick={() => setModalTab('gemini')}
+                className={`flex-1 py-4 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${modalTab === 'gemini'
+                  ? 'bg-brand-500/10 text-brand-400 border-b-2 border-brand-500'
+                  : 'text-slate-500 hover:text-slate-300'
+                  }`}
+              >
+                <Zap className="w-4 h-4" />
+                Gemini API
+              </button>
+              <button
+                onClick={() => setModalTab('hf')}
+                className={`flex-1 py-4 text-sm font-semibold transition-all flex items-center justify-center gap-2 ${modalTab === 'hf'
+                  ? 'bg-brand-500/10 text-brand-400 border-b-2 border-brand-500'
+                  : 'text-slate-500 hover:text-slate-300'
+                  }`}
+              >
+                <ImageIcon className="w-4 h-4" />
+                Hugging Face
+              </button>
+            </div>
+
             <button
               onClick={() => setApiKeyModalOpen(false)}
-              className="absolute top-3 right-3 text-slate-500 hover:text-slate-300"
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 z-10 p-1 rounded-full hover:bg-slate-800 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h2 className="text-lg font-semibold text-white mb-2">
-              Enter your Gemini API key
-            </h2>
-            <p className="text-xs text-slate-400 mb-4">
-              Get your API key at{' '}
-              <a
-                href="https://aistudio.google.com/api-keys"
-                target="_blank"
-                rel="noreferrer"
-                className="text-brand-400 hover:text-brand-300 underline"
-              >
-                aistudio.google.com/api-keys
-              </a>{' '}
-              and paste it below. The key will be stored locally in your
-              browser (localStorage) and used only on this device.
-            </p>
+            <div className="p-8">
+              {modalTab === 'gemini' ? (
+                <div className="animate-in slide-in-from-left-4 duration-300">
+                  <h2 className="text-xl font-bold text-white mb-2">
+                    Gemini AI Model
+                  </h2>
+                  <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                    Used for SVG generation, code analysis, and prompt enhancement.
+                    Get yours at{' '}
+                    <a
+                      href="https://aistudio.google.com/api-keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand-400 hover:text-brand-300 underline font-medium"
+                    >
+                      aistudio.google.com
+                    </a>
+                  </p>
 
-            <input
-              type="text"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="AIza...your_key_here"
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/60"
-            />
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <KeyRound className="h-4 w-4 text-slate-600" />
+                      </div>
+                      <input
+                        type="password"
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder="AIzaSy..."
+                        className="w-full bg-slate-950 border border-slate-700/50 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/50 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-in slide-in-from-right-4 duration-300">
+                  <h2 className="text-xl font-bold text-white mb-2">
+                    Hugging Face (Flux)
+                  </h2>
+                  <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                    Used for high-quality image generation (FLUX.1).
+                    Create a token (Role: Read) at{' '}
+                    <a
+                      href="https://huggingface.co/settings/tokens"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand-400 hover:text-brand-300 underline font-medium"
+                    >
+                      huggingface.co/settings/tokens
+                    </a>
+                  </p>
 
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                onClick={handleSaveApiKey}
-                disabled={!apiKeyInput.trim()}
-                className={`
-                  px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2
-                  ${apiKeyInput.trim()
-                    ? 'bg-brand-600 text-white hover:bg-brand-500'
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  }
-                `}
-              >
-                {apiKeySaved ? (
-                  <>
-                    <Check className="w-4 h-4 text-green-400" />
-                    Saved
-                  </>
-                ) : (
-                  'Save API key'
-                )}
-              </button>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <KeyRound className="h-4 w-4 text-slate-600" />
+                      </div>
+                      <input
+                        type="password"
+                        value={hfKeyInput}
+                        onChange={(e) => setHfKeyInput(e.target.value)}
+                        placeholder="hf_..."
+                        className="w-full bg-slate-950 border border-slate-700/50 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/50 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <button
-                onClick={() => setApiKeyModalOpen(false)}
-                className="text-xs text-slate-500 hover:text-slate-300"
-              >
-                Cancel
-              </button>
+              <div className="mt-8 flex flex-col gap-3">
+                <button
+                  onClick={handleSaveApiKey}
+                  disabled={(modalTab === 'gemini' ? !apiKeyInput.trim() : !hfKeyInput.trim())}
+                  className={`
+                    w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]
+                    ${(modalTab === 'gemini' ? apiKeyInput.trim() : hfKeyInput.trim())
+                      ? 'bg-brand-600 text-white hover:bg-brand-500 shadow-lg shadow-brand-500/20'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  {(modalTab === 'gemini' ? apiKeySaved : hfKeySaved) ? (
+                    <>
+                      <Check className="w-5 h-5 text-green-400" />
+                      Saved Successfully
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 opacity-70" />
+                      Save Settings
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setApiKeyModalOpen(false)}
+                  className="w-full py-3 text-xs text-slate-500 hover:text-slate-300 font-medium transition-colors"
+                >
+                  Close & Continue
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/50 border-t border-slate-800 px-8 py-4 flex items-start gap-3">
+              <div className="mt-0.5 p-1 bg-blue-500/10 rounded-md">
+                <AlertCircle className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+              <p className="text-[10px] text-slate-500 leading-normal">
+                Keys are stored securely in your browser's local storage and never leave your device except for API calls to the official models.
+              </p>
             </div>
           </div>
         </div>
