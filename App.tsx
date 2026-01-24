@@ -355,13 +355,13 @@ const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-1 bg-slate-900 rounded-full border border-slate-800 flex relative">
+            <div className="p-1 bg-slate-900 rounded-xl sm:rounded-full border border-slate-800 flex w-full sm:w-auto relative">
               <button
                 onClick={() => {
                   setActiveTab('edit');
                   setErrorMsg(null);
                 }}
-                className={`relative z-10 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeTab === 'edit'
+                className={`relative z-10 flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg sm:rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${activeTab === 'edit'
                   ? 'text-white bg-slate-800 shadow-sm border border-slate-700'
                   : 'text-slate-500 hover:text-slate-300'
                   }`}
@@ -373,7 +373,7 @@ const App: React.FC = () => {
                   setActiveTab('generate');
                   setErrorMsg(null);
                 }}
-                className={`relative z-10 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeTab === 'generate'
+                className={`relative z-10 flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg sm:rounded-full text-xs sm:text-sm font-medium transition-all duration-300 ${activeTab === 'generate'
                   ? 'text-white bg-slate-800 shadow-sm border border-slate-700'
                   : 'text-slate-500 hover:text-slate-300'
                   }`}
@@ -451,12 +451,12 @@ const App: React.FC = () => {
                       }
                       className="w-full bg-transparent border-none text-slate-100 placeholder:text-slate-600 focus:ring-0 p-4 resize-none h-32 text-lg"
                     />
-                    <div className="flex justify-between items-center px-4 pb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex bg-slate-950 rounded-lg p-0.5 border border-slate-800">
+                    <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 px-4 pb-4 sm:pb-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex-1 sm:flex-none">
                           <button
                             onClick={() => setOutputMode('image')}
-                            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 transition-colors ${outputMode === 'image'
+                            className={`flex-1 sm:flex-none px-2 py-1.5 rounded-md text-[10px] sm:text-xs flex items-center justify-center gap-1 transition-colors ${outputMode === 'image'
                               ? 'bg-slate-800 text-white shadow-sm'
                               : 'text-slate-500 hover:text-slate-300'
                               }`}
@@ -466,7 +466,7 @@ const App: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setOutputMode('svg')}
-                            className={`px-2 py-1 rounded-md text-xs flex items-center gap-1 transition-colors ${outputMode === 'svg'
+                            className={`flex-1 sm:flex-none px-2 py-1.5 rounded-md text-[10px] sm:text-xs flex items-center justify-center gap-1 transition-colors ${outputMode === 'svg'
                               ? 'bg-slate-800 text-white shadow-sm'
                               : 'text-slate-500 hover:text-slate-300'
                               }`}
@@ -481,11 +481,11 @@ const App: React.FC = () => {
                             onClick={() =>
                               attachmentInputRef.current?.click()
                             }
-                            className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-brand-300 px-3 py-1.5 rounded-full transition-colors border border-slate-700/50 ml-2"
+                            className="flex items-center justify-center gap-1.5 text-[10px] sm:text-xs bg-slate-800 hover:bg-slate-700 text-brand-300 px-3 py-1.5 rounded-full transition-colors border border-slate-700/50"
                             title="Attach up to 3 images"
                           >
                             <Paperclip className="w-3.5 h-3.5" />
-                            Attach Image
+                            <span className="hidden xs:inline">Attach</span>
                           </button>
                         )}
 
@@ -493,7 +493,7 @@ const App: React.FC = () => {
                           <button
                             onClick={handleTranslate}
                             disabled={isTranslating}
-                            className="flex items-center gap-1.5 text-[10px] bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-2.5 py-1 rounded-full transition-colors border border-brand-500/20 ml-2 animate-in fade-in zoom-in duration-300"
+                            className="flex items-center justify-center gap-1.5 text-[10px] bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-full transition-colors border border-brand-500/20 animate-in fade-in zoom-in duration-300"
                             title="Translate to English"
                           >
                             <Languages className="w-3 h-3" />
@@ -505,7 +505,7 @@ const App: React.FC = () => {
                       <button
                         onClick={handleGenerate}
                         disabled={!prompt.trim()}
-                        className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2.5 rounded-xl sm:rounded-lg font-semibold sm:font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-600/20"
                       >
                         Generate <Sparkles className="w-4 h-4" />
                       </button>
@@ -660,13 +660,13 @@ const App: React.FC = () => {
                     disabled={appState === AppState.PROCESSING}
                   />
 
-                  <div className="flex justify-between items-center mt-3">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-4">
+                    <div className="flex flex-wrap items-center gap-2">
                       {activeTab === 'generate' &&
                         referenceImages.length === 0 && (
                           <button
                             onClick={() => attachmentInputRef.current?.click()}
-                            className="flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-brand-400 transition-colors bg-slate-800/50 px-2 py-1 rounded-md border border-slate-700/50"
+                            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-brand-400 transition-colors bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50"
                             title="Attach image"
                           >
                             <Paperclip className="w-3 h-3" />
@@ -675,7 +675,7 @@ const App: React.FC = () => {
                         )}
                       {activeTab === 'generate' &&
                         referenceImages.length > 0 && (
-                          <span className="text-[10px] text-slate-500 bg-slate-800/30 px-2 py-1 rounded-md">
+                          <span className="text-xs text-slate-500 bg-slate-800/30 px-3 py-1.5 rounded-lg">
                             {referenceImages.length}/3 attached
                           </span>
                         )}
@@ -683,7 +683,7 @@ const App: React.FC = () => {
                         <button
                           onClick={handleTranslate}
                           disabled={isTranslating}
-                          className="flex items-center gap-1.5 text-[10px] bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-2.5 py-1 rounded-md transition-colors border border-brand-500/20 animate-in fade-in zoom-in duration-300"
+                          className="flex items-center gap-1.5 text-xs bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-lg transition-colors border border-brand-500/20 animate-in fade-in zoom-in duration-300"
                           title="Translate to English"
                         >
                           <Languages className="w-3 h-3" />
@@ -692,26 +692,24 @@ const App: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleGenerate}
-                        disabled={!prompt.trim() || appState === AppState.PROCESSING}
-                        className={`
-                          flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-all
-                          ${!prompt.trim() || appState === AppState.PROCESSING
-                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                            : 'bg-brand-600 text-white hover:bg-brand-500 shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 active:scale-95'
-                          }
-                        `}
-                      >
-                        {appState === AppState.PROCESSING
-                          ? 'Processing...'
-                          : 'Generate'}
-                        {appState !== AppState.PROCESSING && (
-                          <Wand2 className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleGenerate}
+                      disabled={!prompt.trim() || appState === AppState.PROCESSING}
+                      className={`
+                        flex items-center justify-center gap-2 px-8 py-2.5 rounded-xl font-semibold transition-all
+                        ${!prompt.trim() || appState === AppState.PROCESSING
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : 'bg-brand-600 text-white hover:bg-brand-500 shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 active:scale-95'
+                        }
+                      `}
+                    >
+                      {appState === AppState.PROCESSING
+                        ? 'Processing...'
+                        : 'Generate'}
+                      {appState !== AppState.PROCESSING && (
+                        <Wand2 className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
