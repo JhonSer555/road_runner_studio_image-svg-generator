@@ -325,7 +325,7 @@ const App: React.FC = () => {
     }
   };
 
-  const hasRussian = useMemo(() => /[а-яА-ЯёЁ]/.test(prompt), [prompt]);
+  const needsTranslation = useMemo(() => /[^\x00-\x7F]/.test(prompt), [prompt]);
 
   const showWorkspace =
     (activeTab === 'edit' && originalImage) ||
@@ -489,11 +489,11 @@ const App: React.FC = () => {
                           </button>
                         )}
 
-                        {hasRussian && (
+                        {needsTranslation && (
                           <button
                             onClick={handleTranslate}
                             disabled={isTranslating}
-                            className="flex items-center justify-center gap-1.5 text-[10px] bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-full transition-colors border border-brand-500/20 animate-in fade-in zoom-in duration-300"
+                            className="flex items-center justify-center gap-1.5 text-[10px] sm:text-xs bg-brand-600/10 hover:bg-brand-600/20 text-brand-400 px-3 py-1.5 rounded-full transition-colors border border-brand-500/20 animate-in fade-in zoom-in duration-300"
                             title="Translate to English"
                           >
                             <Languages className="w-3 h-3" />
@@ -679,7 +679,7 @@ const App: React.FC = () => {
                             {referenceImages.length}/3 attached
                           </span>
                         )}
-                      {hasRussian && (
+                      {needsTranslation && (
                         <button
                           onClick={handleTranslate}
                           disabled={isTranslating}
