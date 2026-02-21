@@ -4782,7 +4782,7 @@ const App: React.FC = () => {
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white">Road Runner Studio</h2>
                     <p className="text-sm text-slate-400 mt-1">
-                      Универсальная AI-студия для генерации изображений, видео и SVG с интерактивным редактором слоев и текста.
+                      Universal AI studio for image, video, and SVG generation with an interactive layer and text editor.
                     </p>
                   </div>
                   <div className="px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-[11px] font-semibold text-brand-300 whitespace-nowrap">
@@ -4792,18 +4792,18 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-                    <h3 className="text-xs uppercase tracking-widest font-bold text-brand-300 mb-3">Что умеет проект</h3>
+                    <h3 className="text-xs uppercase tracking-widest font-bold text-brand-300 mb-3">What the Project Can Do</h3>
                     <ul className="space-y-2 text-sm text-slate-300">
-                      <li>• Генерация изображений из текста (Hugging Face / FLUX).</li>
-                      <li>• Генерация видео (AIHubMix: Sora, Kling, Pika, Luma).</li>
-                      <li>• Генерация и редактирование SVG (Gemini 2.5 Flash).</li>
-                      <li>• Drag / resize / rotate для слов и графических слоев.</li>
-                      <li>• Экспорт SVG / HTML и история сессий.</li>
+                      <li>• Text-to-image generation (Hugging Face / FLUX).</li>
+                      <li>• Video generation (AIHubMix: Sora, Kling, Pika, Luma).</li>
+                      <li>• SVG generation and editing (Gemini 2.5 Flash).</li>
+                      <li>• Drag / resize / rotate for text and graphic layers.</li>
+                      <li>• SVG / HTML export and session history.</li>
                     </ul>
                   </div>
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-                    <h3 className="text-xs uppercase tracking-widest font-bold text-brand-300 mb-3">Поддержка проекта</h3>
+                    <h3 className="text-xs uppercase tracking-widest font-bold text-brand-300 mb-3">Support the Project</h3>
 
                     <div className="flex items-center gap-4 mb-4">
                       <div className="support-coffee-scene" aria-hidden="true">
@@ -4816,7 +4816,7 @@ const App: React.FC = () => {
                         <div className="support-saucer" />
                       </div>
                       <p className="text-xs text-slate-400 leading-relaxed">
-                        Если приложение полезно вам в работе, можно поддержать разработку донатом в криптовалюте.
+                        If this app helps your workflow, you can support ongoing development with a crypto donation.
                       </p>
                     </div>
 
@@ -4854,7 +4854,7 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-emerald-400/80 mt-3">Спасибо за вашу поддержку.</p>
+                    <p className="text-[11px] text-emerald-400/80 mt-3">Thank you for your support.</p>
                   </div>
                 </div>
 
@@ -4863,7 +4863,7 @@ const App: React.FC = () => {
                     onClick={() => setProjectInfoModalOpen(false)}
                     className="px-4 py-2 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 transition-colors text-sm"
                   >
-                    Понятно
+                    Got it
                   </button>
                 </div>
                 </div>
