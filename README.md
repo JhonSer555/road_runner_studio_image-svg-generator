@@ -10,11 +10,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc4
 
 ## Run locally
 
-<img width="960" height="403" alt="Снимок экрана 2026-01-22 042813" src="https://github.com/user-attachments/assets/cca42d72-20c0-4d6b-86f2-fc42059e8a00" />
 
 Follow these steps to run the app on your machine.
+<img width="960" height="488" alt="Снимок экрана 2026-02-19 232726" src="https://github.com/user-attachments/assets/5641729e-1856-4f64-975c-a911972f7a28" />
 
-### 1. Prerequisites
+### 1. Prerequisites<img width="960" height="488" alt="Снимок экрана 2026-02-19 232923" src="https://github.com/user-attachments/assets/8f48a894-0f92-4859-97d8-8245146900f0" />
+
 
 - Node.js 18 or higher installed
 
