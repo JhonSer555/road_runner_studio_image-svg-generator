@@ -7,18 +7,18 @@
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc47gMZea1Fiv
+<img width="960" height="488" alt="Снимок экрана 2026-02-19 232726" src="https://github.com/user-attachments/assets/1cb004e7-06cb-4cdd-9781-0e16587bbbdc" />
+<img width="960" height="484" alt="Снимок экрана 2026-02-19 233016" src="https://github.com/user-attachments/assets/71313991-96a4-406d-86d4-8e43f65bc88d" />
+<img width="960" height="486" alt="Снимок экрана 2026-02-19 233143" src="https://github.com/user-attachments/assets/85dea5f2-51cd-4318-971c-602a1cbc781d" />
+<img width="960" height="486" alt="Снимок экрана 2026-02-19 233439" src="https://github.com/user-attachments/assets/ce32ee70-37c9-4c8f-9a57-264c9eb9a87e" />
+<img width="960" height="369" alt="Снимок экрана 2026-02-20 032842" src="https://github.com/user-attachments/assets/77eef521-3c73-437b-afe7-27fa971c0703" />
 
 ## Run locally
 
 
 Follow these steps to run the app on your machine.
-<img width="960" height="488" alt="Снимок экрана 2026-02-19 232726" src="https://github.com/user-attachments/assets/5641729e-1856-4f64-975c-a911972f7a28" />
-<img width="960" height="486" alt="Снимок экрана 2026-02-19 233143" src="https://github.com/user-attachments/assets/1c399a54-ce6b-4f06-9a75-27a2a1420141" />
-<img width="1162" height="980" alt="Снимок экрана 2026-02-19 233354" src="https://github.com/user-attachments/assets/347e24f3-445d-4b08-af83-655002bf3c42" /><img width="960" height="486" alt="Снимок экрана 2026-02-19 233439" src="https://github.com/user-attachments/assets/e91ca05b-8bb8-4579-aaa6-c043cc4f3054" />
 
-
-
-### 1. Prerequisites<img width="960" height="488" alt="Снимок экрана 2026-02-19 232923" src="https://github.com/user-attachments/assets/8f48a894-0f92-4859-97d8-8245146900f0" />
+### 1. Prerequisites
 
 
 - Node.js 18 or higher installed
