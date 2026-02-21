@@ -14,7 +14,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc4
 Follow these steps to run the app on your machine.
 <img width="960" height="488" alt="Снимок экрана 2026-02-19 232726" src="https://github.com/user-attachments/assets/5641729e-1856-4f64-975c-a911972f7a28" />
 <img width="960" height="486" alt="Снимок экрана 2026-02-19 233143" src="https://github.com/user-attachments/assets/1c399a54-ce6b-4f06-9a75-27a2a1420141" />
-<img width="1162" height="980" alt="Снимок экрана 2026-02-19 233354" src="https://github.com/user-attachments/assets/347e24f3-445d-4b08-af83-655002bf3c42" /><img width="960" height="486" alt="Снимок экрана 2026-02-19 233439" src="https://github.com/user-attachments/assets/e91ca05b-8bb8-4579-aaa6-c043cc4f3054" /><img width="960" height="369" alt="Снимок экрана 2026-02-20 032842" src="https://github.com/user-attachments/assets/84d1dcf9-c896-47fe-9761-d5c1a67a2da4" />
+<img width="1162" height="980" alt="Снимок экрана 2026-02-19 233354" src="https://github.com/user-attachments/assets/347e24f3-445d-4b08-af83-655002bf3c42" /><img width="960" height="486" alt="Снимок экрана 2026-02-19 233439" src="https://github.com/user-attachments/assets/e91ca05b-8bb8-4579-aaa6-c043cc4f3054" />
 
 
 
