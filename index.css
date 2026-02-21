@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#020617] text-slate-200 antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+  }
+}
+
+/* === Bounding Box / Gizmo Styles === */
+
+@keyframes marching-ants {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.ui-layer {
+  pointer-events: none;
+}
+
+.gizmo-rect {
+  fill: rgba(0, 170, 255, 0.06);
+  stroke: #00aaff;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  animation: marching-ants 0.6s linear infinite;
+  pointer-events: all;
+  cursor: move;
+}
+
+.handle {
+  fill: #ffffff;
+  stroke: #00aaff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  transition: fill 0.15s ease;
+}
+
+.handle:hover {
+  fill: #00aaff;
+}
+
+.handle.rotator {
+  cursor: grab;
+  r: 5;
+}
+
+.handle.rotator:active {
+  cursor: grabbing;
+}
+
+.handle.resizer {
+  cursor: nwse-resize;
+  r: 5;
+}
+
+/* === Project Info / Donation Modal === */
+
+@keyframes support-steam-rise {
+  0% {
+    transform: translateY(0) scale(0.9);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-22px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.support-coffee-scene {
+  position: relative;
+  width: 56px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.support-steam {
+  position: absolute;
+  top: 4px;
+  width: 6px;
+  height: 16px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.7) 0%, rgba(34, 211, 238, 0) 100%);
+  animation: support-steam-rise 1.8s ease-out infinite;
+}
+
+.support-steam-1 {
+  left: 16px;
+  animation-delay: 0s;
+}
+
+.support-steam-2 {
+  left: 25px;
+  animation-delay: 0.3s;
+}
+
+.support-steam-3 {
+  left: 34px;
+  animation-delay: 0.6s;
+}
+
+.support-cup {
+  position: absolute;
+  left: 10px;
+  bottom: 12px;
+  width: 34px;
+  height: 20px;
+  border: 2px solid rgba(56, 189, 248, 0.7);
+  border-top: 3px solid rgba(56, 189, 248, 0.9);
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(2, 6, 23, 0.9) 100%);
+}
+
+.support-cup-handle {
+  position: absolute;
+  right: -10px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(56, 189, 248, 0.7);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+}
+
+.support-saucer {
+  position: absolute;
+  left: 6px;
+  bottom: 7px;
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.35);
+}

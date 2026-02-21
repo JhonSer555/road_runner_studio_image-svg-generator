@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import { GoogleGenAI } from "@google/genai";
 import { GenerationResult, ImageAsset } from "../types";
 
@@ -17,6 +16,7 @@ const MODEL_CHAIN_IMAGE: string[] = [];
 
 // Helper to initialize the client only when needed.
 const getAiClient = () => {
+  console.log("geminiService.ts: Initializing AI Client...");
   // 1. Пробуем взять ключ из localStorage (в браузере)
   let storedKey: string | null = null;
 
@@ -106,49 +106,233 @@ export const editImageWithGemini = async (
 };
 
 /**
- * Translates the prompt to English for UI visibility using free Google Translate API.
+ * Translates the prompt to English for UI visibility using chunking and engine rotation.
  */
 export const translatePrompt = async (prompt: string): Promise<string> => {
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(prompt)}`;
+  const trimmed = prompt.trim();
+  if (!trimmed || !/[^\x00-\x7F]/.test(trimmed)) return trimmed;
 
-    const res = await fetch(url);
-    if (!res.ok) return prompt;
+  // 1. Split text into segments based on language (ASCII vs Non-ASCII)
+  // This ensures we only translate what's necessary and preserve the rest.
+  const segments = splitByLanguage(trimmed);
+  const results: string[] = [];
 
-    const data = await res.json();
-    if (data && Array.isArray(data[0])) {
-      const translated = data[0]
-        .filter((seg: any) => Array.isArray(seg) && typeof seg[0] === "string")
-        .map((seg: any) => seg[0])
-        .join("");
+  for (const segment of segments) {
+    if (segment.isNonAscii) {
+      // Translate only non-English parts
+      results.push(await translateChunk(segment.text));
+    } else {
+      // Keep English parts exactly as they are
+      results.push(segment.text);
+    }
+  }
 
-      if (translated.trim() === prompt.trim() && /[а-яА-ЯёЁ]/.test(prompt)) {
-        const retryUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=${encodeURIComponent(prompt)}`;
-        const retryRes = await fetch(retryUrl);
-        if (retryRes.ok) {
-          const retryData = await retryRes.json();
-          if (retryData && Array.isArray(retryData[0])) {
-            return retryData[0]
-              .filter((seg: any) => Array.isArray(seg) && typeof seg[0] === "string")
-              .map((seg: any) => seg[0])
-              .join("");
-          }
-        }
-      }
-      return translated || prompt;
+  return results.join("");
+};
+
+const splitByLanguage = (text: string): { text: string; isNonAscii: boolean }[] => {
+  const segments: { text: string; isNonAscii: boolean }[] = [];
+  if (!text) return segments;
+
+  // Improved Regex: Group runs of Non-ASCII words including the spaces between them.
+  // This ensures prepositions like "в" are translated in context.
+  const regex = /([^\x00-\x7F\s]+(?:\s+[^\x00-\x7F\s]+)*|[\x00-\x7F\s]+)/g;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index === regex.lastIndex && match[0].length === 0) {
+      regex.lastIndex++;
+      continue;
     }
 
-    return prompt;
-  } catch (error) {
-    console.warn("Google Translate failed:", error);
-    return prompt;
+    const part = match[0];
+    segments.push({
+      text: part,
+      isNonAscii: /[^\x00-\x7F]/.test(part)
+    });
   }
+
+  return segments;
+};
+
+/**
+ * Translates a single chunk using a rotation of free engines.
+ */
+const translateChunk = async (chunk: string): Promise<string> => {
+  // OPTIMIZATION: If chunk is already pure English/ASCII, skip translation.
+  if (!/[^\x00-\x7F]/.test(chunk)) return chunk;
+
+  const engines = [
+    // 1. Google Translate - Client: gtx
+    async () => {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(chunk)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("GTX Fail");
+      const data = await res.json();
+      return (data[0] || []).map((s: any) => s[0]).join("");
+    },
+    // 2. MyMemory API (Very reliable for chunks < 500)
+    async () => {
+      const hasCyrillic = /[а-яА-ЯёЁ]/.test(chunk);
+      // If mixed or specifically Cyrillic, use ru|en, otherwise auto|en
+      const langPair = hasCyrillic ? "ru|en" : "auto|en";
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${langPair}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("MyMemory Fail");
+      const data = await res.json();
+      const text = data.responseData?.translatedText;
+      if (text?.toUpperCase().includes("LIMIT EXCEEDED")) throw new Error("Limit");
+      return text || "";
+    },
+    // 3. Google Translate - Client: dict-chrome-ex
+    async () => {
+      const url = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=t&q=${encodeURIComponent(chunk)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("ChromeEx Fail");
+      const data = await res.json();
+      return (data[0] || []).map((s: any) => s[0]).join("");
+    }
+  ];
+
+  for (const engine of engines) {
+    try {
+      const result = await engine();
+      // Only return if result is non-empty and valid.
+      if (result && result.trim() && !isTranslationConfused(chunk, result)) return result;
+    } catch { continue; }
+  }
+
+  // No additional fallbacks.
+
+  // Ultimate fallback to Gemini
+  try {
+    const geminiResult = await translateOnlyWithGemini(chunk);
+    if (geminiResult && geminiResult.trim() && !isTranslationConfused(chunk, geminiResult)) {
+      return geminiResult;
+    }
+  } catch (err) {
+    console.warn("Gemini translation fallback failed:", err);
+  }
+
+  // ULTIMATE FALLBACK: Return the original chunk if all else fails.
+  return chunk;
+};
+
+/**
+ * Splits long text into manageable chunks if needed (unused in current targeted splitting but kept for utility)
+ */
+const splitIntoChunks = (text: string, maxLen: number): string[] => {
+  const result: string[] = [];
+  const parts = text.split(/([.!?。！？\n]+)/);
+  let current = "";
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if ((current + part).length > maxLen && current.length > 0) {
+      result.push(current);
+      current = "";
+    }
+    current += part;
+  }
+  if (current) result.push(current);
+  return result;
+};
+
+/**
+ * Validates the translation result.
+ * True if the translation seems failed, partial, or confusing.
+ */
+const isTranslationConfused = (prompt: string, translated: string): boolean => {
+  if (!translated || !translated.trim()) return true; // Reject empty/whitespace translations
+
+  const upper = translated.toUpperCase();
+  const isErr = upper.includes("LIMIT EXCEEDED") || upper.includes("MAX ALLOWED") || upper.includes("SOURCE LANGUAGE");
+  if (isErr) return true;
+
+  // Counts non-ASCII characters (RU, ZH, etc.)
+  const originalNonAscii = (prompt.match(/[^\x00-\x7F]/g) || []).length;
+  const newNonAscii = (translated.match(/[^\x00-\x7F]/g) || []).length;
+
+  const isUnchanged = translated.trim() === prompt.trim();
+
+  // Confused if:
+  // 1. Text is basically unchanged but had non-ascii to begin with.
+  // 2. The amount of non-ascii characters hasn't dropped significantly (indicates partial translation).
+  return (isUnchanged && originalNonAscii > 0) || (newNonAscii > originalNonAscii * 0.2 && originalNonAscii > 5);
 };
 
 /**
  * Translates and enhances the prompt using Gemini to ensure it's optimized for the image model.
  */
-const translateAndEnhancePrompt = async (prompt: string): Promise<string> => {
+export const translateAndEnhancePrompt = async (prompt: string, aspectRatio?: { width: number; height: number }): Promise<string> => {
+  try {
+    let storedKey: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        storedKey = window.localStorage.getItem("GEMINI_API_KEY");
+      } catch {
+        // ignore
+      }
+    }
+    const apiKey = storedKey || process.env.API_KEY;
+
+    if (apiKey) {
+      const defaultBaseUrl = import.meta.env.PROD
+        ? "https://generativelanguage.googleapis.com"
+        : "/api/gemini";
+      const baseUrl = process.env.GEMINI_BASE_URL || defaultBaseUrl;
+
+      const systemPrompt = `
+        You are an expert AI prompt engineer for Flux and Stable Diffusion.
+        1. Translate the user prompt to English if it's not already.
+        2. Expand it into a detailed, high-quality image generation prompt.
+        3. Add details about style, lighting, composition, and mood.
+        4. Maintain the original subject and actions.
+        5. IMPORTANT: Output ONLY the final English prompt text. No explanations.
+      `;
+      const ratioSuffix = aspectRatio
+        ? `\n\nNote: The target aspect ratio is ${aspectRatio.width}:${aspectRatio.height}. Optimize the description for this orientation.`
+        : '';
+
+      for (const model of MODEL_CHAIN_SVG) {
+        try {
+          const res = await fetch(
+            `${baseUrl}/v1/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: `${systemPrompt}${ratioSuffix}\n\nUser prompt: ${prompt}` }] }],
+              }),
+            }
+          );
+
+          if (res.ok) {
+            const json = await res.json();
+            const enhanced = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (enhanced) return enhanced;
+          } else if (res.status === 429) {
+            console.warn(`Gemini rate limit (429) on model ${model}. Stopping chain.`);
+            break; // Stop trying other models if we hit a rate limit
+          }
+        } catch (e) {
+          console.warn(`Gemini enhancement failed with model ${model}, trying next...`, e);
+          continue;
+        }
+      }
+    }
+
+    return prompt;
+  } catch (error) {
+    console.warn("Prompt enhancement failed, using original:", error);
+    return prompt;
+  }
+};
+
+/**
+ * Robust translation using Gemini for complex or mixed-language prompts.
+ */
+const translateOnlyWithGemini = async (prompt: string): Promise<string> => {
   try {
     let storedKey: string | null = null;
     if (typeof window !== "undefined") {
@@ -161,52 +345,120 @@ const translateAndEnhancePrompt = async (prompt: string): Promise<string> => {
     const apiKey = storedKey || process.env.API_KEY;
     if (!apiKey) return prompt;
 
-    // Use direct URL in production (built Electron), use proxy in development
     const defaultBaseUrl = import.meta.env.PROD
       ? "https://generativelanguage.googleapis.com"
       : "/api/gemini";
-
     const baseUrl = process.env.GEMINI_BASE_URL || defaultBaseUrl;
 
-    const systemPrompt = `
-      You are an expert AI prompt engineer for Flux and Stable Diffusion.
-      1. Translate the user prompt to English if it's not already.
-      2. Expand it into a detailed, high-quality image generation prompt.
-      3. Add details about style, lighting, composition, and mood.
-      4. Maintain the original subject and actions.
-      5. IMPORTANT: Output ONLY the final English prompt text. No explanations.
-    `;
+    const systemPrompt = "Translate the following prompt exactly into English. If it contains multiple languages, translate everything to English. Maintain the original meaning and tone. Output ONLY the English translation, no other text.";
 
     const res = await fetch(
       `${baseUrl}/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `${systemPrompt}\n\nUser prompt: ${prompt}` }]
-          }],
+          contents: [{ parts: [{ text: `${systemPrompt}\n\nPrompt: ${prompt}` }] }],
         }),
       }
     );
 
-    if (!res.ok) {
-      return prompt;
-    }
-
+    if (!res.ok) return prompt;
     const json = await res.json();
-    const enhanced = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-    console.log("Original prompt:", prompt);
-    console.log("Enhanced prompt:", enhanced);
-
-    return enhanced || prompt;
-  } catch (error) {
-    console.warn("Prompt enhancement failed, using original:", error);
+    return json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || prompt;
+  } catch (err) {
     return prompt;
   }
+};
+
+export const refinePromptWithGemini = async (prompt: string): Promise<string[]> => {
+  try {
+    let storedKey: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        storedKey = window.localStorage.getItem("GEMINI_API_KEY");
+      } catch {
+        // ignore
+      }
+    }
+    const apiKey = storedKey || process.env.API_KEY;
+
+    if (!apiKey) return [prompt];
+
+    const defaultBaseUrl = import.meta.env.PROD
+      ? "https://generativelanguage.googleapis.com"
+      : "/api/gemini";
+    const baseUrl = process.env.GEMINI_BASE_URL || defaultBaseUrl;
+
+    const systemPrompt = `
+      You are an expert AI prompt engineer for image generation models (Flux, Stable Diffusion).
+      Given a user's prompt, generate 3-5 creative variations that:
+      1. Translate to English if needed
+      2. Expand with vivid details about style, lighting, composition, and mood
+      3. Maintain the original subject and intent
+      4. Offer diverse creative directions (e.g., different art styles, perspectives, moods)
+      
+      IMPORTANT: Output ONLY a JSON array of strings, each being a complete prompt variation.
+      Example format: ["variation 1 here", "variation 2 here", "variation 3 here"]
+      Do NOT include any explanations or markdown formatting.
+    `;
+
+    // Try each model in the chain
+    for (const model of MODEL_CHAIN_SVG) {
+      try {
+        const res = await fetch(
+          `${baseUrl}/v1/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `${systemPrompt}\n\nUser prompt: ${prompt}` }] }],
+            }),
+          }
+        );
+
+        if (res.ok) {
+          const json = await res.json();
+          const responseText = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (responseText) {
+            try {
+              const parsed = JSON.parse(responseText.replace(/```json|```/g, "").trim());
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.filter(p => typeof p === 'string' && p.trim());
+              }
+            } catch {
+              // If JSON parsing fails, try to return single text result if it looks like a prompt
+              if (responseText.length > 5) return [responseText];
+            }
+          }
+        } else if (res.status === 429) {
+          console.warn(`Gemini refinement rate limit (429) on model ${model}. Stopping chain.`);
+          break; // Stop trying other models if we hit a rate limit
+        }
+      } catch (err) {
+        console.warn(`Refinement failed with model ${model}:`, err);
+        continue; // Try next model
+      }
+    }
+
+    // If all models fail
+    return [prompt];
+  } catch (error) {
+    console.warn("Prompt refinement failed:", error);
+    return [prompt];
+  }
+};
+
+export const generateSurprisePrompt = async (): Promise<string> => {
+  const prompts = [
+    "A futuristic road runner bird, minimalist vector logo, neon colors",
+    "Cyberpunk city street at night, neon blue and orange, rain reflections",
+    "Abstract geometric shapes, 3d render, white background, soft shadows",
+    "A sleek modern icon for a speed delivery service, flat design",
+    "A magical forest with bioluminescent plants, digital art style",
+    "Steam punk coffee machine, detailed illustration, vintage style"
+  ];
+  return prompts[Math.floor(Math.random() * prompts.length)];
 };
 
 /**
@@ -215,11 +467,12 @@ const translateAndEnhancePrompt = async (prompt: string): Promise<string> => {
  */
 export const generateMultimodalImage = async (
   prompt: string,
-  referenceImages: ImageAsset[] = []
+  referenceImages: ImageAsset[] = [],
+  aspectRatio?: { width: number; height: number }
 ): Promise<GenerationResult> => {
   try {
     // 0. Enhance the prompt using Gemini (Translation + Prompt Engineering)
-    const enhancedPrompt = await translateAndEnhancePrompt(prompt);
+    const enhancedPrompt = await translateAndEnhancePrompt(prompt, aspectRatio);
 
     // Hugging Face Implementation (Flux Schnell via Router)
     // Uses local proxy /api/huggingface to avoid CORS
@@ -247,13 +500,25 @@ export const generateMultimodalImage = async (
 
     const url = `${baseUrl}/models/${model}`;
 
+    // Prepare request body with aspect ratio support
+    const requestBody: any = {
+      inputs: enhancedPrompt,
+      parameters: {}
+    };
+
+    // Add width and height if aspect ratio is provided
+    if (aspectRatio) {
+      requestBody.parameters.width = aspectRatio.width;
+      requestBody.parameters.height = aspectRatio.height;
+    }
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: enhancedPrompt }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -285,7 +550,8 @@ export const generateMultimodalImage = async (
  */
 export const generateSvgWithGemini = async (
   prompt: string,
-  referenceImages: ImageAsset[] = []
+  referenceImages: ImageAsset[] = [],
+  aspectRatio?: { width: number; height: number }
 ): Promise<GenerationResult> => {
   try {
     // 1. Берём ключ так же, как в getAiClient
@@ -325,8 +591,17 @@ export const generateSvgWithGemini = async (
       });
     });
 
+    // Add aspect ratio context to prompt
+    const ratioInfo = aspectRatio
+      ? `The target aspect ratio is ${aspectRatio.width}:${aspectRatio.height}. Please ensure the SVG viewbox and design are oriented ${aspectRatio.width < aspectRatio.height ? 'vertically' : aspectRatio.width > aspectRatio.height ? 'horizontally' : 'as a square'}.`
+      : '';
+
     parts.push({
-      text: `${prompt}\n\nPlease output the result as clean, valid SVG code within a code block. Do not use markdown backticks for the SVG logic if possible, just the raw SVG or standard code block.`,
+      text: `${prompt}\n\n${ratioInfo}\n\nCRITICAL: Output ONLY the raw <svg> tag and its contents. DO NOT use markdown code blocks (\`\`\`svg or \`\`\`). 
+      1. Ensure the <svg> has width="100%" height="100%" and preserveAspectRatio="xMidYMid slice" to fill the viewport without margins.
+      2. ALWAYS include a background <rect width="100%" height="100%" fill="..."/> as the VERY FIRST element inside the svg tag. 
+      3. Use the background color requested in the prompt (default to #000000 black if not specified).
+      4. No internal padding or borders outside the primary content.`,
     });
 
     // 3. Прямой HTTP‑запрос к Gemini

@@ -46,5 +46,12 @@ npm run dev
   © Created by <strong><span style="color:#0d47a1;">@FDTiger777</span></strong>
 </p>
 
+## Legal
+
+- This project is protected under a proprietary license.
+- See `LICENSE` for terms of use and restrictions.
+- Author: `@FDTiger777`
+- Version: `2.8.3`
+
 
 
