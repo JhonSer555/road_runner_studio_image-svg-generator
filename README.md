@@ -22,20 +22,21 @@ Follow these steps to run the app on your machine.
 - Node.js 18 or higher installed
 
 ### 2. Clone the repository
-
 ```bash
 git clone https://github.com/JhonSer555/road_runner_studio_image-svg-generator.git
 ```
+
+### 3. Go to the directory
 ```bash
 cd road_runner_studio_image-svg-generator
 ```
 
-### 3. Install dependencies
+### 4. Install dependencies
 ```bash
 npm install
 ```
 
-### 4. Run the app
+### 5. Run the app
 ```bash
 npm run dev
 ```
