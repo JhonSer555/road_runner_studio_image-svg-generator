@@ -15,11 +15,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc4
 
 ## Run locally
 
-
 Follow these steps to run the app on your machine.
 
 ### 1. Prerequisites
-
 
 - Node.js 18 or higher installed
 
@@ -36,7 +34,8 @@ cd road_runner_studio_image-svg-generator
 ```bash
 npm install
 ```
-5. Run the app
+
+4. Run the app
 ```bash
 npm run dev
 ```
