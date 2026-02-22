@@ -1205,6 +1205,38 @@ const sanitizeSvgCss = (svg: string | null) => {
   );
 };
 
+const formatFileSize = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb >= 10 ? 1 : 2)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb >= 10 ? 1 : 2)} MB`;
+};
+
+const getDataUrlByteSize = (dataUrl: string): number | null => {
+  if (!dataUrl.startsWith('data:')) return null;
+
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex === -1) return null;
+
+  const meta = dataUrl.slice(0, commaIndex);
+  const payload = dataUrl.slice(commaIndex + 1);
+
+  if (/;base64/i.test(meta)) {
+    const clean = payload.replace(/\s/g, '');
+    if (!clean) return 0;
+    const padding = clean.endsWith('==') ? 2 : clean.endsWith('=') ? 1 : 0;
+    const bytes = Math.floor((clean.length * 3) / 4) - padding;
+    return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+  }
+
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).length;
+  } catch {
+    return new TextEncoder().encode(payload).length;
+  }
+};
+
 const ensureLayerIds = (svgString: string) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgString, 'image/svg+xml');
@@ -1250,6 +1282,7 @@ const App: React.FC = () => {
   const [referenceImages, setReferenceImages] = useState<ImageAsset[]>([]);
 
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImageBytes, setGeneratedImageBytes] = useState<number | null>(null);
   const [generatedText, setGeneratedText] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [originalPrompt, setOriginalPrompt] = useState('');
@@ -1395,6 +1428,56 @@ const App: React.FC = () => {
       }
     }
   }, [generatedText]);
+
+  useEffect(() => {
+    setGeneratedImageBytes(null);
+
+    if (!generatedImage || outputMode !== 'image') return;
+
+    if (generatedImage.startsWith('data:')) {
+      setGeneratedImageBytes(getDataUrlByteSize(generatedImage));
+      return;
+    }
+
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const resolveImageSize = async () => {
+      try {
+        const headResponse = await fetch(generatedImage, {
+          method: 'HEAD',
+          signal: controller.signal,
+        });
+
+        const lengthHeader = headResponse.headers.get('content-length');
+        if (lengthHeader) {
+          const parsed = Number(lengthHeader);
+          if (!cancelled && Number.isFinite(parsed) && parsed >= 0) {
+            setGeneratedImageBytes(parsed);
+            return;
+          }
+        }
+      } catch {
+        // Ignore and fallback to full fetch.
+      }
+
+      try {
+        const response = await fetch(generatedImage, { signal: controller.signal });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        if (!cancelled) setGeneratedImageBytes(blob.size);
+      } catch {
+        // Keep null if size cannot be resolved (e.g., CORS-restricted URL).
+      }
+    };
+
+    resolveImageSize();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [generatedImage, outputMode]);
 
   // Model Provider State (Linked to Output Mode)
   const [modelProvider, setModelProvider] = useState<ModelProvider>('huggingface'); // Default for 'image' mode
@@ -1631,6 +1714,32 @@ const App: React.FC = () => {
     },
     [generatedText, modifiedSvg]
   );
+
+  const workingSvgForSize = useMemo(() => {
+    const source = modifiedSvg || generatedText || '';
+    if (!source) return '';
+    return extractSvg(source) || source;
+  }, [generatedText, modifiedSvg]);
+
+  const previewSvgFileSize = useMemo(() => {
+    if (!workingSvgForSize) return null;
+    const bytes =
+      typeof TextEncoder !== 'undefined'
+        ? new TextEncoder().encode(workingSvgForSize).length
+        : new Blob([workingSvgForSize]).size;
+    return {
+      bytes,
+      label: formatFileSize(bytes),
+    };
+  }, [workingSvgForSize]);
+
+  const previewImageFileSize = useMemo(() => {
+    if (!generatedImage || outputMode !== 'image' || generatedImageBytes === null) return null;
+    return {
+      bytes: generatedImageBytes,
+      label: formatFileSize(generatedImageBytes),
+    };
+  }, [generatedImage, generatedImageBytes, outputMode]);
 
   const selectedLetters = useMemo(() => {
     if (selectedLetterIds.size === 0) return [];
@@ -4295,21 +4404,37 @@ const App: React.FC = () => {
                         {appState === AppState.PROCESSING && <LoadingOverlay outputMode={outputMode} modelProvider={modelProvider} />}
 
                         {generatedImage && outputMode !== 'svg' && (
-                          (generatedImage.endsWith('.mp4') || generatedImage.endsWith('.mov') || generatedImage.includes('video') || outputMode === 'video') ? (
-                            <video
-                              src={generatedImage}
-                              controls
-                              autoPlay
-                              loop
-                              className="max-h-full max-w-full object-contain animate-in fade-in duration-700 rounded-lg shadow-2xl"
-                            />
-                          ) : (
-                            <img
-                              src={generatedImage}
-                              alt="Generated Result"
-                              className="max-h-full max-w-full object-contain animate-in fade-in duration-700"
-                            />
-                          )
+                          <div className="w-full h-full relative flex items-center justify-center">
+                            {outputMode === 'image' && previewImageFileSize && (
+                              <div className="absolute left-3 top-3 z-20 pointer-events-none">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-slate-900/80 px-3 py-1.5 shadow-[0_0_20px_-10px_rgba(59,130,246,0.9)] backdrop-blur">
+                                  <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.95)]" />
+                                  <span className="text-[10px] font-semibold tracking-wide text-blue-300">Image Size</span>
+                                  <span
+                                    className="text-[11px] font-bold text-cyan-200"
+                                    title={`${previewImageFileSize.bytes.toLocaleString()} bytes`}
+                                  >
+                                    {previewImageFileSize.label}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {(generatedImage.endsWith('.mp4') || generatedImage.endsWith('.mov') || generatedImage.includes('video') || outputMode === 'video') ? (
+                              <video
+                                src={generatedImage}
+                                controls
+                                autoPlay
+                                loop
+                                className="max-h-full max-w-full object-contain animate-in fade-in duration-700 rounded-lg shadow-2xl"
+                              />
+                            ) : (
+                              <img
+                                src={generatedImage}
+                                alt="Generated Result"
+                                className="max-h-full max-w-full object-contain animate-in fade-in duration-700"
+                              />
+                            )}
+                          </div>
                         )}
 
                         {(generatedText || outputMode === 'svg') && (
@@ -4352,6 +4477,20 @@ const App: React.FC = () => {
 
                             {/* Main SVG Content Area */}
                             <div className="flex-1 overflow-hidden relative flex flex-col">
+                              {viewMode === 'preview' && previewSvgFileSize && (
+                                <div className={`absolute left-3 top-3 z-20 pointer-events-none transition-all duration-300 ${showSvgPanel ? 'sm:left-4' : ''}`}>
+                                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-slate-900/80 px-3 py-1.5 shadow-[0_0_20px_-10px_rgba(34,211,238,0.9)] backdrop-blur">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]" />
+                                    <span className="text-[10px] font-semibold tracking-wide text-cyan-300">SVG Size</span>
+                                    <span
+                                      className="text-[11px] font-bold text-emerald-300"
+                                      title={`${previewSvgFileSize.bytes.toLocaleString()} bytes`}
+                                    >
+                                      {previewSvgFileSize.label}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
                               {viewMode === 'preview' ? (
                                 <div
                                   className={`w-full h-full flex-1 flex items-center justify-center overflow-auto relative transition-[padding] duration-300 ${showSvgPanel ? 'pr-64' : 'pr-0'}`}
