@@ -1213,6 +1213,22 @@ const formatFileSize = (bytes: number): string => {
   return `${mb.toFixed(mb >= 10 ? 1 : 2)} MB`;
 };
 
+const generateClientId = (): string => {
+  const cryptoApi = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return cryptoApi.randomUUID();
+  }
+
+  if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    cryptoApi.getRandomValues(bytes);
+    const randomHex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return `rrs-${Date.now().toString(36)}-${randomHex}`;
+  }
+
+  return `rrs-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+};
+
 const getDataUrlByteSize = (dataUrl: string): number | null => {
   if (!dataUrl.startsWith('data:')) return null;
 
@@ -1928,7 +1944,7 @@ const App: React.FC = () => {
       const match = result.match(/^data:(.+);base64,(.+)$/);
       if (match) {
         const asset: ImageAsset = {
-          id: crypto.randomUUID(),
+          id: generateClientId(),
           url: result,
           mimeType: match[1],
           base64Data: match[2],
@@ -2966,7 +2982,7 @@ const App: React.FC = () => {
 
         // Save to history
         const historyItem: HistoryItem = {
-          id: crypto.randomUUID(),
+          id: generateClientId(),
           type: 'image',
           data: result.imageUrl,
           prompt: prompt,
@@ -2999,8 +3015,8 @@ const App: React.FC = () => {
         setAppState(AppState.SUCCESS);
 
         const historyItem: HistoryItem = {
-          id: crypto.randomUUID(),
-          type: 'video' as any, // Cast if type missing
+          id: generateClientId(),
+          type: 'video',
           data: result.videoUrl,
           prompt: prompt,
           timestamp: Date.now(),
@@ -3018,7 +3034,7 @@ const App: React.FC = () => {
 
         // Save to history
         const historyItem: HistoryItem = {
-          id: crypto.randomUUID(),
+          id: generateClientId(),
           type: 'svg',
           data: cleanedSvg,
           prompt: prompt,
@@ -3254,6 +3270,22 @@ const App: React.FC = () => {
                     <div className="aspect-square rounded-lg bg-slate-900 overflow-hidden relative border border-slate-800/50">
                       {item.type === 'image' ? (
                         <img src={item.data} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      ) : item.type === 'video' ? (
+                        <>
+                          <video
+                            src={item.data}
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
+                          <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md border border-purple-400/40 bg-purple-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-purple-200">
+                            <Video className="w-2.5 h-2.5" /> VIDEO
+                          </div>
+                        </>
                       ) : (
                         <div
                           className="w-full h-full [&_svg]:w-full [&_svg]:h-full [&_svg]:block"
