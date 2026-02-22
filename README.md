@@ -30,12 +30,12 @@ git clone https://github.com/JhonSer555/road_runner_studio_image-svg-generator.g
 cd road_runner_studio_image-svg-generator
 ```
 
-3. Install dependencies
+### 3. Install dependencies
 ```bash
 npm install
 ```
 
-4. Run the app
+### 4. Run the app
 ```bash
 npm run dev
 ```
