@@ -220,6 +220,107 @@ const getSvgDimensions = (svgEl: SVGSVGElement | null): { width: number | null; 
   };
 };
 
+const applyAspectRatioToSvgCanvas = (
+  svgString: string,
+  ratioWidth: number,
+  ratioHeight: number
+): string => {
+  if (!svgString) return svgString;
+  if (!(ratioWidth > 0) || !(ratioHeight > 0)) return svgString;
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgEl = doc.querySelector('svg') as SVGSVGElement | null;
+  if (!svgEl) return svgString;
+
+  const targetRatio = ratioWidth / ratioHeight;
+  if (!Number.isFinite(targetRatio) || targetRatio <= 0) return svgString;
+
+  const parseFinite = (value: string | null): number | null => {
+    if (value === null) return null;
+    const num = parseFloat(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const round = (value: number) => Math.round(value * 1000) / 1000;
+
+  const existingViewBox = svgEl.getAttribute('viewBox');
+  let viewBoxMinX = 0;
+  let viewBoxMinY = 0;
+  if (existingViewBox) {
+    const parts = existingViewBox.trim().split(/[\s,]+/).map((v) => parseFloat(v));
+    if (parts.length >= 2) {
+      if (Number.isFinite(parts[0])) viewBoxMinX = parts[0];
+      if (Number.isFinite(parts[1])) viewBoxMinY = parts[1];
+    }
+  }
+
+  const { width: currentWidth, height: currentHeight } = getSvgDimensions(svgEl);
+
+  // Keep original canvas as baseline so repeated ratio switching is stable
+  // and does not progressively shrink artwork.
+  const storedBaseWidth = parseFinite(svgEl.getAttribute('data-rr-base-width'));
+  const storedBaseHeight = parseFinite(svgEl.getAttribute('data-rr-base-height'));
+  const storedBaseMinX = parseFinite(svgEl.getAttribute('data-rr-base-min-x'));
+  const storedBaseMinY = parseFinite(svgEl.getAttribute('data-rr-base-min-y'));
+
+  const baseWidth = storedBaseWidth && storedBaseWidth > 0
+    ? storedBaseWidth
+    : (currentWidth && currentWidth > 0 ? currentWidth : ratioWidth);
+  const baseHeight = storedBaseHeight && storedBaseHeight > 0
+    ? storedBaseHeight
+    : (currentHeight && currentHeight > 0 ? currentHeight : ratioHeight);
+  const baseMinX = storedBaseMinX ?? viewBoxMinX;
+  const baseMinY = storedBaseMinY ?? viewBoxMinY;
+
+  const baseRatio = baseWidth / baseHeight;
+  if (!Number.isFinite(baseRatio) || baseRatio <= 0) return svgString;
+
+  let nextWidth = baseWidth;
+  let nextHeight = baseHeight;
+  if (targetRatio > baseRatio) {
+    nextWidth = baseHeight * targetRatio;
+  } else if (targetRatio < baseRatio) {
+    nextHeight = baseWidth / targetRatio;
+  }
+
+  nextWidth = round(nextWidth);
+  nextHeight = round(nextHeight);
+
+  if (!Number.isFinite(nextWidth) || !Number.isFinite(nextHeight) || nextWidth <= 0 || nextHeight <= 0) {
+    return svgString;
+  }
+
+  let nextMinX = baseMinX;
+  let nextMinY = baseMinY;
+  if (targetRatio > baseRatio) {
+    nextMinX = round(baseMinX - (nextWidth - baseWidth) / 2);
+  } else if (targetRatio < baseRatio) {
+    nextMinY = round(baseMinY - (nextHeight - baseHeight) / 2);
+  }
+
+  const widthStr = `${nextWidth}`;
+  const heightStr = `${nextHeight}`;
+  const viewBoxStr = `${nextMinX} ${nextMinY} ${nextWidth} ${nextHeight}`;
+
+  const currentWidthAttr = svgEl.getAttribute('width');
+  const currentHeightAttr = svgEl.getAttribute('height');
+  const currentViewBoxAttr = svgEl.getAttribute('viewBox');
+
+  if (currentWidthAttr === widthStr && currentHeightAttr === heightStr && currentViewBoxAttr === viewBoxStr) {
+    return svgString;
+  }
+
+  svgEl.setAttribute('width', widthStr);
+  svgEl.setAttribute('height', heightStr);
+  svgEl.setAttribute('viewBox', viewBoxStr);
+  svgEl.setAttribute('data-rr-base-width', `${baseWidth}`);
+  svgEl.setAttribute('data-rr-base-height', `${baseHeight}`);
+  svgEl.setAttribute('data-rr-base-min-x', `${baseMinX}`);
+  svgEl.setAttribute('data-rr-base-min-y', `${baseMinY}`);
+
+  return svgEl.outerHTML;
+};
+
 const parseSvgCoordinate = (value: string | null, axisSize: number | null): number | null => {
   if (!value) return null;
   const token = value.trim().split(/[\s,]+/)[0];
@@ -1562,6 +1663,23 @@ const App: React.FC = () => {
     const baseSvg = extractSvg(rawBase) || rawBase;
     if (baseSvg) {
       setModifiedSvg(reconstructSvg(baseSvg, svgWords, svgLayers, imageUrl, svgBackground));
+    }
+  };
+
+  const handleAspectRatioChange = (ratioId: string) => {
+    setSelectedRatio(ratioId);
+
+    if (outputMode !== 'svg') return;
+    const ratioInfo = ASPECT_RATIOS.find((r) => r.id === ratioId);
+    if (!ratioInfo) return;
+
+    const rawBase = modifiedSvg || generatedText || '';
+    const baseSvg = extractSvg(rawBase) || rawBase;
+    if (!baseSvg) return;
+
+    const resizedSvg = applyAspectRatioToSvgCanvas(baseSvg, ratioInfo.width, ratioInfo.height);
+    if (resizedSvg && resizedSvg !== baseSvg) {
+      setModifiedSvg(resizedSvg);
     }
   };
 
@@ -3537,7 +3655,7 @@ const App: React.FC = () => {
                               {ASPECT_RATIOS.map((ratio) => (
                                 <button
                                   key={ratio.id}
-                                  onClick={() => setSelectedRatio(ratio.id)}
+                                  onClick={() => handleAspectRatioChange(ratio.id)}
                                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedRatio === ratio.id
                                     ? 'bg-slate-800 text-white shadow-sm'
                                     : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
