@@ -171,13 +171,13 @@ export const initConsoleSVGArt = (): void => {
   );
   console.log(
     "%cRoad Runner Studio • Build Info\n" +
-    "%cversion%c     2.8.3\n" +
+    "%cversion%c     2.8.4\n" +
     "%cenvironment%c production\n",
     // заголовок — как основной брендовый текст, но чуть мельче
     "color:#3b82f6;font-weight:bold;font-size:13px",
     // label "version"
     "color:#94a3b8;font-size:12px",
-    // value "2.8.3"
+    // value "2.8.4"
     "color:#a855f7;font-size:12px",
     // label "environment"
     "color:#94a3b8;font-size:12px",
