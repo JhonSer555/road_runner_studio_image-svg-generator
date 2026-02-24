@@ -52,7 +52,6 @@ npm run dev
 - This project is protected under a proprietary license.
 - See `LICENSE` for terms of use and restrictions.
 - Author: `@FDTiger777`
-- Version: `2.8.3`
-
+- Version: `2.8.4`
 
 

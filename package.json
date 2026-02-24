@@ -1,7 +1,7 @@
 {
   "name": "road-runner-studio",
   "private": true,
-  "version": "2.8.3",
+  "version": "2.8.4",
   "description": "Premium AI image and SVG generation studio",
   "author": "FDTiger777",
   "main": "electron/main.cjs",

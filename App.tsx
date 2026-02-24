@@ -394,6 +394,7 @@ const applyAspectRatioToSvgCanvas = (
   svgEl.setAttribute('data-rr-base-min-x', `${baseMinX}`);
   svgEl.setAttribute('data-rr-base-min-y', `${baseMinY}`);
 
+  ensureSvgRootNamespaces(svgEl);
   return svgEl.outerHTML;
 };
 
@@ -1120,6 +1121,7 @@ const reconstructSvg = (originalSvg: string, words: Word[], layers: SvgLayer[] =
     });
   }
 
+  ensureSvgRootNamespaces(svgEl);
   return svgEl.outerHTML;
 };
 
@@ -1409,7 +1411,7 @@ const SUGGESTED_GEN_PROMPTS = [
   'A sleek modern icon for a speed delivery service',
 ];
 
-const APP_VERSION = '2.8.3';
+const APP_VERSION = '2.8.4';
 const DONATION_BTC_ADDRESS = '1G2n3RiNs73dUX9mbAJio1hsTAnwUFz4cD';
 const DONATION_USDT_TRC20_ADDRESS = 'TWBxb1nfQJFjpxd9htgPSpvpexsBZ2Z4HV';
 
@@ -1458,6 +1460,25 @@ const extractSvg = (text: string) => {
     return cleaned;
   }
   return null;
+};
+
+const ensureSvgRootNamespaces = (svgEl: Element) => {
+  if (!svgEl.getAttribute('xmlns')) {
+    svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  if (!svgEl.getAttribute('xmlns:xlink')) {
+    svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  }
+};
+
+const normalizeSvgRootMarkup = (svgString: string) => {
+  if (!svgString) return svgString;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgEl = doc.querySelector('svg');
+  if (!svgEl) return svgString;
+  ensureSvgRootNamespaces(svgEl);
+  return svgEl.outerHTML;
 };
 
 // Remove @import and external URLs from <style> blocks
@@ -1534,6 +1555,7 @@ const ensureLayerIds = (svgString: string) => {
   const svgEl = doc.querySelector('svg');
   if (!svgEl) return svgString;
 
+  ensureSvgRootNamespaces(svgEl);
   ensureLayerIdsOnSvg(svgEl);
 
   return svgEl.outerHTML;
@@ -3374,7 +3396,9 @@ const App: React.FC = () => {
       } else if (result.text) {
         // Sanitize SVG text before storing to history to avoid sarcophagi
         const cleanedSvg = extractSvg(result.text) || result.text;
-        setGeneratedText(cleanedSvg);
+        const normalizedSvg = ensureLayerIds(cleanedSvg);
+        setGeneratedText(normalizedSvg);
+        setModifiedSvg(normalizedSvg);
         setGeneratedImage(null);
         setAppState(AppState.SUCCESS);
 
@@ -3382,7 +3406,7 @@ const App: React.FC = () => {
         const historyItem: HistoryItem = {
           id: generateClientId(),
           type: 'svg',
-          data: cleanedSvg,
+          data: normalizedSvg,
           prompt: prompt,
           timestamp: Date.now(),
           isFavorite: false,
@@ -3412,7 +3436,13 @@ const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } else if (modifiedSvg || svgContent) {
-      let finalSvg = modifiedSvg || svgContent || '';
+      const exportSource = modifiedSvg || svgContent || '';
+      const extractedSvg = extractSvg(exportSource);
+      if (!extractedSvg) {
+        setErrorMsg('Failed to export: SVG markup is invalid.');
+        return;
+      }
+      let finalSvg = normalizeSvgRootMarkup(extractedSvg);
 
       // Inject background color and image into the SVG code for persistence
       if (finalSvg.includes('<svg')) {
