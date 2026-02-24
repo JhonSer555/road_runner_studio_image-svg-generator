@@ -43,6 +43,9 @@ npm install
 ```bash
 npm run dev
 ```
+<p align="center">
+  © Created by <strong><span style="color:#0d47a1;">@FDTiger777</span></strong>
+</p>
 
 ## Legal
 
