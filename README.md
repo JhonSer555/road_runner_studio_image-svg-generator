@@ -34,56 +34,21 @@ These commands are for source code development, not for end users.
 2. Clone the repository:
 ```bash
 git clone https://github.com/JhonSer555/road_runner_studio_image-svg-generator.git
+```
+3. Go to the directory:
+```bash
 cd road_runner_studio_image-svg-generator
 ```
 
-3. Install dependencies:
+4. Install dependencies:
 ```bash
 npm install
 ```
 
-4. Run web app:
+5. Run web app:
 ```bash
 npm run dev
 ```
-
-### Desktop build (Electron + NSIS)
-
-- Dev desktop mode:
-```bash
-npm run dev:desktop
-```
-
-- Build installer (`.exe`):
-```bash
-npm run build:desktop
-```
-
-- Build unpacked app (without installer):
-```bash
-npm run build:desktop:dir
-```
-
-Output folder:
-- `release/`
-
-### Desktop auto-update (maintainers)
-
-The desktop app checks updates from:
-- `JhonSer555/road_runner_studio_image-svg-generator`
-
-To publish a desktop update:
-1. Bump app version in `package.json`.
-2. Build artifacts.
-3. Upload `*.exe`, `*.blockmap`, and `latest.yml` to a new GitHub Release.
-
-Notes:
-- Without code signing, Windows SmartScreen may show a warning.
-- `Publisher` in Windows comes from certificate identity; without signature it stays unknown.
-
-<p align="center">
-  © Created by <strong><span style="color:#0d47a1;">@FDTiger777</span></strong>
-</p>
 
 ## Legal
 
