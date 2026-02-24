@@ -17,7 +17,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1fmbkFnc1QwWpRcxUCp_Uc4
 
 If you just want to install the app, use GitHub Releases:
 - Open the latest Release.
-- Download `Road Runner Studio-Setup-*.exe`.
+- Download `Road-Runner-Studio-Setup-*.exe`.
 - Run the installer.
 
 ### Run locally (web mode)

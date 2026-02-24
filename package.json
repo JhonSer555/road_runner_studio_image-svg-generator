@@ -41,7 +41,7 @@
   "build": {
     "appId": "com.fdtiger777.roadrunnerstudio",
     "productName": "Road Runner Studio",
-    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "artifactName": "Road-Runner-Studio-Setup-${version}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
