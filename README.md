@@ -20,12 +20,6 @@ If you just want to install the app, use GitHub Releases:
 - Download `Road Runner Studio-Setup-*.exe`.
 - Run the installer.
 
-You do not need `npm`, `Node.js`, or terminal commands for this.
-
-## For developers
-
-These commands are for source code development, not for end users.
-
 ### Run locally (web mode)
 
 1. Prerequisites:
