@@ -40,6 +40,47 @@ npm install
 ```bash
 npm run dev
 ```
+
+## Desktop (Windows .exe installer)
+
+This project now supports Electron + NSIS installer with:
+- install path selection
+- desktop/start menu shortcuts
+- uninstall entry in Control Panel
+- app update checks via GitHub Releases
+
+### Run desktop app in dev mode
+```bash
+npm run dev:desktop
+```
+
+### Build installer (.exe)
+```bash
+npm run build:desktop
+```
+
+Output folder:
+- `release/`
+
+### Build unpacked desktop app (without installer)
+```bash
+npm run build:desktop:dir
+```
+
+### Auto-update flow (GitHub Releases)
+
+The desktop app checks updates from:
+- `JhonSer555/road_runner_studio_image-svg-generator`
+
+To publish a new desktop update:
+1. Bump app version in `package.json`.
+2. Build and publish artifacts to GitHub Releases.
+3. Users get in-app update notification and can restart to install.
+
+Notes:
+- Without code signing, Windows SmartScreen may show a warning.
+- `Publisher` in Windows comes from certificate identity; without signature it stays unknown.
+
 <p align="center">
   © Created by <strong><span style="color:#0d47a1;">@FDTiger777</span></strong>
 </p>

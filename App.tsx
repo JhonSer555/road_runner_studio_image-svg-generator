@@ -70,11 +70,38 @@ import { AppState, ImageAsset, Letter, Word, SvgLayer, TextMeasureStyle } from '
 
 // --- New SVG Parsing / Reconstruction Logic ---
 
+const ensureLayerIdsOnSvg = (svgEl: Element) => {
+  const elements = svgEl.querySelectorAll('path, rect, circle, text, image, g, line');
+  const used = new Set<string>();
+
+  elements.forEach((el) => {
+    const id = el.getAttribute('id');
+    if (id) used.add(id);
+  });
+
+  let counter = 0;
+  elements.forEach((el, index) => {
+    let id = el.getAttribute('id');
+    if (!id) {
+      let candidate = `layer-${el.tagName.toLowerCase()}-${index}`;
+      while (used.has(candidate)) {
+        counter += 1;
+        candidate = `layer-${el.tagName.toLowerCase()}-${index}-${counter}`;
+      }
+      id = candidate;
+      el.setAttribute('id', id);
+      used.add(id);
+    }
+  });
+};
+
 const parseSvgLayers = (svgString: string): SvgLayer[] => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgString, 'image/svg+xml');
   const svgEl = doc.querySelector('svg');
   if (!svgEl) return [];
+
+  ensureLayerIdsOnSvg(svgEl);
 
   const layers: SvgLayer[] = [];
   const elements = svgEl.querySelectorAll('path, rect, circle, text, image, g, line');
@@ -93,21 +120,32 @@ const parseSvgLayers = (svgString: string): SvgLayer[] => {
   };
 
   elements.forEach((el, index) => {
-    // Skip internal elements of text if we want to treat text as a single layer (optional)
-    // For now, let's list everything that has a visual presence
-    if (el.tagName.toLowerCase() === 'tspan') return;
+    const tagName = el.tagName.toLowerCase();
+    const id = el.getAttribute('id') || `layer-${tagName}-${index}`;
 
-    const id = el.getAttribute('id') || `${el.tagName.toLowerCase()}-${index}`;
-    if (!el.getAttribute('id')) el.setAttribute('id', id);
+    // Hide technical/empty image placeholders from the Layers panel.
+    if (tagName === 'image') {
+      const href =
+        el.getAttribute('href')
+        || el.getAttribute('xlink:href')
+        || el.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+      if (!href || !href.trim()) return;
+    }
 
     const anim = el.querySelector('animate');
     const animDuration = anim ? parseDurationSeconds(anim.getAttribute('dur')) : undefined;
     const dataDuration = parseDurationSeconds(el.getAttribute('data-duration'));
     const dataVisible = el.getAttribute('data-layer-visible');
     const displayAttr = el.getAttribute('display');
+    const displayStyle = getInlineStyleValue(el.getAttribute('style') || '', 'display');
+    const visibilityAttr = el.getAttribute('visibility');
+    const visibilityStyle = getInlineStyleValue(el.getAttribute('style') || '', 'visibility');
+    const opacityAttr = el.getAttribute('opacity');
+    const opacityStyle = getInlineStyleValue(el.getAttribute('style') || '', 'opacity');
+    const parsedOpacity = parseFloat(opacityAttr ?? opacityStyle ?? '1');
     const visible = dataVisible === '0' || dataVisible === 'false'
       ? false
-      : displayAttr === 'none'
+      : displayAttr === 'none' || displayStyle === 'none' || visibilityAttr === 'hidden' || visibilityStyle === 'hidden'
         ? false
         : true;
     const baseTransform = el.getAttribute('data-layer-base-transform') ?? el.getAttribute('transform') ?? undefined;
@@ -123,7 +161,7 @@ const parseSvgLayers = (svgString: string): SvgLayer[] => {
       label: el.getAttribute('data-label') || `${el.tagName} ${index + 1}`,
       fill: el.getAttribute('fill') || undefined,
       stroke: el.getAttribute('stroke') || undefined,
-      opacity: parseFloat(el.getAttribute('opacity') || '1'),
+      opacity: Number.isFinite(parsedOpacity) ? parsedOpacity : 1,
       duration: animDuration ?? dataDuration,
       hasAnimate: Boolean(anim),
       visible,
@@ -140,11 +178,49 @@ const parseSvgLayers = (svgString: string): SvgLayer[] => {
   return layers;
 };
 
-const getInlineStyleValue = (style: string, prop: string): string | null => {
+function getInlineStyleValue(style: string, prop: string): string | null {
   if (!style) return null;
   const match = style.match(new RegExp(`${prop}\\s*:\\s*([^;]+)`, 'i'));
   return match ? match[1].trim() : null;
-};
+}
+
+function setInlineStyleValue(style: string, prop: string, value?: string | null): string {
+  const propLower = prop.trim().toLowerCase();
+  if (!propLower) return style.trim();
+
+  const declarations: Array<{ prop: string; value: string }> = [];
+  style
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      const idx = part.indexOf(':');
+      if (idx === -1) return;
+      const key = part.slice(0, idx).trim();
+      const val = part.slice(idx + 1).trim();
+      if (!key) return;
+      if (key.toLowerCase() !== propLower) {
+        declarations.push({ prop: key, value: val });
+      }
+    });
+
+  const nextValue = value?.trim();
+  if (nextValue) {
+    declarations.push({ prop, value: nextValue });
+  }
+
+  return declarations.map((decl) => `${decl.prop}: ${decl.value}`).join('; ');
+}
+
+function applyInlineStyleValue(el: Element, prop: string, value?: string | null) {
+  const currentStyle = el.getAttribute('style') || '';
+  const nextStyle = setInlineStyleValue(currentStyle, prop, value);
+  if (nextStyle) {
+    el.setAttribute('style', nextStyle);
+  } else {
+    el.removeAttribute('style');
+  }
+}
 
 const getAttrOrInlineStyle = (el: Element, attr: string): string | undefined => {
   const attrValue = el.getAttribute(attr);
@@ -572,6 +648,8 @@ const reconstructSvg = (originalSvg: string, words: Word[], layers: SvgLayer[] =
   const svgEl = doc.querySelector('svg');
   if (!svgEl) return originalSvg;
 
+  ensureLayerIdsOnSvg(svgEl);
+
   const namespace = "http://www.w3.org/2000/svg";
   const { width: svgWidth, height: svgHeight } = getSvgDimensions(svgEl as SVGSVGElement);
   const isFullCanvasRect = (el: Element) => {
@@ -714,7 +792,11 @@ const reconstructSvg = (originalSvg: string, words: Word[], layers: SvgLayer[] =
     if (el) {
       if (layer.fill) el.setAttribute('fill', layer.fill);
       if (layer.stroke) el.setAttribute('stroke', layer.stroke);
-      if (layer.opacity !== undefined) el.setAttribute('opacity', layer.opacity.toString());
+      if (layer.opacity !== undefined) {
+        const opacityValue = layer.opacity.toString();
+        el.setAttribute('opacity', opacityValue);
+        applyInlineStyleValue(el, 'opacity', opacityValue);
+      }
       if (layer.duration !== undefined) {
         const anims = Array.from(el.querySelectorAll('animate'));
         if (anims.length > 0) {
@@ -747,13 +829,22 @@ const reconstructSvg = (originalSvg: string, words: Word[], layers: SvgLayer[] =
       const shouldForceHidden = bgImage && forcedHiddenRectIds.has(layer.id);
       if (shouldForceHidden) {
         el.setAttribute('display', 'none');
+        el.setAttribute('visibility', 'hidden');
         el.setAttribute('data-layer-visible', '0');
+        applyInlineStyleValue(el, 'display', 'none');
+        applyInlineStyleValue(el, 'visibility', 'hidden');
       } else if (layer.visible === false) {
         el.setAttribute('display', 'none');
+        el.setAttribute('visibility', 'hidden');
         el.setAttribute('data-layer-visible', '0');
+        applyInlineStyleValue(el, 'display', 'none');
+        applyInlineStyleValue(el, 'visibility', 'hidden');
       } else if (layer.visible === true) {
         el.removeAttribute('display');
+        el.removeAttribute('visibility');
         el.setAttribute('data-layer-visible', '1');
+        applyInlineStyleValue(el, 'display', null);
+        applyInlineStyleValue(el, 'visibility', null);
       }
     }
   });
@@ -1176,25 +1267,108 @@ const getTextMeasureStyle = (
 
 
 const generateStandaloneHtml = (svgString: string, words: Word[], bg: string): string => {
+  const letterAnimations = words.flatMap((word) =>
+    word.letters.map((letter) => ({
+      id: letter.id,
+      duration: letter.animation.duration,
+      delay: letter.animation.delay,
+      easing: letter.animation.easing,
+    }))
+  );
+
   const animationScript = `
-    const animateSvgText = () => {
-      ${words.flatMap(word => word.letters.map(letter => `
-      gsap.fromTo("#${letter.id}", 
-        { opacity: 0, y: 10, strokeDasharray: 100, strokeDashoffset: 100 },
-        {
-          opacity: 1,
-          y: 0,
-          strokeDashoffset: 0,
-          duration: ${letter.animation.duration},
-          delay: ${letter.animation.delay},
-          ease: "${letter.animation.easing}"
-        }
-      );`)).join('\n')}
+    const letterAnimations = ${JSON.stringify(letterAnimations)};
+
+    const isElementHidden = (el) => {
+      const dataVisible = (el.getAttribute("data-word-visible") || "").toLowerCase();
+      const visibilityAttr = (el.getAttribute("visibility") || "").toLowerCase();
+      const displayAttr = (el.getAttribute("display") || "").toLowerCase();
+      const style = window.getComputedStyle(el);
+      return (
+        dataVisible === "0" ||
+        dataVisible === "false" ||
+        visibilityAttr === "hidden" ||
+        displayAttr === "none" ||
+        style.visibility === "hidden" ||
+        style.display === "none"
+      );
     };
 
-    window.onload = () => {
-      animateSvgText();
+    const hasVisibleStroke = (el) => {
+      const style = window.getComputedStyle(el);
+      const stroke = (style.stroke || el.getAttribute("stroke") || "").trim().toLowerCase();
+      const strokeWidth = parseFloat(style.strokeWidth || el.getAttribute("stroke-width") || "0");
+      return Boolean(stroke && stroke !== "none" && stroke !== "transparent" && Number.isFinite(strokeWidth) && strokeWidth > 0);
     };
+
+    const getDashLength = (el) => {
+      try {
+        if (typeof el.getComputedTextLength === "function") {
+          const length = el.getComputedTextLength();
+          if (Number.isFinite(length) && length > 0) {
+            return Math.max(140, Math.ceil(length * 1.8));
+          }
+        }
+      } catch {}
+
+      try {
+        const box = el.getBBox();
+        const perimeter = (Math.abs(box.width) + Math.abs(box.height)) * 2;
+        if (Number.isFinite(perimeter) && perimeter > 0) {
+          return Math.max(140, Math.ceil(perimeter));
+        }
+      } catch {}
+
+      return 180;
+    };
+
+    const animateSvgText = () => {
+      letterAnimations.forEach((config) => {
+        const el = document.getElementById(config.id);
+        if (!el || isElementHidden(el)) return;
+
+        const inTraceLayer = Boolean(el.closest(".trace"));
+        const canUseStrokeDash = hasVisibleStroke(el) && !inTraceLayer;
+
+        if (canUseStrokeDash) {
+          const dashLength = getDashLength(el);
+          gsap.set(el, { strokeDasharray: dashLength, strokeDashoffset: dashLength });
+          gsap.fromTo(
+            el,
+            { opacity: 0, y: 10, strokeDashoffset: dashLength },
+            {
+              opacity: 1,
+              y: 0,
+              strokeDashoffset: 0,
+              duration: config.duration,
+              delay: config.delay,
+              ease: config.easing,
+              overwrite: "auto",
+              onComplete: () => {
+                el.style.strokeDasharray = "none";
+                el.style.strokeDashoffset = "0";
+              },
+            }
+          );
+          return;
+        }
+
+        gsap.fromTo(
+          el,
+          { opacity: 0, y: 10 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: config.duration,
+            delay: config.delay,
+            ease: config.easing,
+            overwrite: "auto",
+          }
+        );
+      });
+    };
+
+    window.addEventListener("load", animateSvgText);
   `;
 
   return `<!DOCTYPE html>
@@ -1360,28 +1534,7 @@ const ensureLayerIds = (svgString: string) => {
   const svgEl = doc.querySelector('svg');
   if (!svgEl) return svgString;
 
-  const elements = svgEl.querySelectorAll('path, rect, circle, text, image, g, line');
-  const used = new Set<string>();
-  elements.forEach((el) => {
-    const id = el.getAttribute('id');
-    if (id) used.add(id);
-  });
-
-  let counter = 0;
-  elements.forEach((el, index) => {
-    if (el.tagName.toLowerCase() === 'tspan') return;
-    let id = el.getAttribute('id');
-    if (!id) {
-      let candidate = `layer-${el.tagName.toLowerCase()}-${index}`;
-      while (used.has(candidate)) {
-        counter += 1;
-        candidate = `layer-${el.tagName.toLowerCase()}-${index}-${counter}`;
-      }
-      id = candidate;
-      el.setAttribute('id', id);
-      used.add(id);
-    }
-  });
+  ensureLayerIdsOnSvg(svgEl);
 
   return svgEl.outerHTML;
 };
@@ -1414,6 +1567,9 @@ const App: React.FC = () => {
   const [isAssistantLoading, setIsAssistantLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [desktopUpdateStatus, setDesktopUpdateStatus] = useState<DesktopUpdateStatus | null>(null);
+  const [showDesktopUpdateCard, setShowDesktopUpdateCard] = useState(false);
+  const [desktopAppVersion, setDesktopAppVersion] = useState<string | null>(null);
 
   // SVG Editor State
   const [svgColors, setSvgColors] = useState<string[]>([]);
@@ -1522,6 +1678,35 @@ const App: React.FC = () => {
     { value: 'luma-1.5', label: '💫 Luma 1.5' }
   ];
 
+  const normalizeDesktopUpdateMessage = (message?: string | null) => {
+    const fallback = 'Failed to check for updates.';
+    const raw = (message || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return fallback;
+
+    const lower = raw.toLowerCase();
+
+    if (lower.includes('status code 404') || lower.includes('not found') || lower.includes('latest.yml')) {
+      return 'Updates are not available yet. Please try again later.';
+    }
+
+    if (
+      lower.includes('internet_disconnected') ||
+      lower.includes('timed out') ||
+      lower.includes('econn') ||
+      lower.includes('enotfound') ||
+      lower.includes('getaddrinfo') ||
+      lower.includes('network')
+    ) {
+      return 'Unable to reach the update server. Check your internet connection and try again.';
+    }
+
+    if (lower.includes('rate limit')) {
+      return 'Update service rate limit reached. Please try again later.';
+    }
+
+    return raw.split(' at ')[0] || fallback;
+  };
+
   useEffect(() => {
     if (generatedText) {
       let svg = extractSvg(generatedText);
@@ -1545,6 +1730,49 @@ const App: React.FC = () => {
       }
     }
   }, [generatedText]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.desktopUpdater?.isDesktop) return;
+
+    let active = true;
+    const updater = window.desktopUpdater;
+
+    updater.getAppVersion()
+      .then((version) => {
+        if (active) setDesktopAppVersion(version);
+      })
+      .catch(() => {
+        // Ignore version read errors in renderer.
+      });
+
+    const unsubscribe = updater.onStatus((status) => {
+      if (!active) return;
+      const nextStatus =
+        status.stage === 'error'
+          ? { ...status, message: normalizeDesktopUpdateMessage(status.message) }
+          : status;
+
+      setDesktopUpdateStatus(nextStatus);
+
+      if (status.stage === 'not-available') {
+        setShowDesktopUpdateCard(false);
+        return;
+      }
+
+      // Keep background auto-check failures silent.
+      // Manual checks explicitly open the update card before requesting status.
+      if (status.stage === 'error') {
+        return;
+      }
+
+      setShowDesktopUpdateCard(true);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     setGeneratedImageBytes(null);
@@ -3198,13 +3426,32 @@ const App: React.FC = () => {
       }
 
       const safeSvg = sanitizeSvgCss(finalSvg);
+      const pdfHtml = `<html><head><meta charset="utf-8" /></head><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#111;">${safeSvg}</body></html>`;
 
       if (format === 'pdf') {
         setIsDownloadingPdf(true);
         setActiveExportButton('pdf');
-        const w = window.open('', '_blank');
+
+        if (isDesktopRuntime && window.desktopUpdater?.savePdf) {
+          try {
+            const result = await window.desktopUpdater.savePdf(
+              pdfHtml,
+              `roadrunner-${Date.now()}.pdf`
+            );
+            if (!result.ok && !result.canceled) {
+              setErrorMsg(result.error || 'Failed to export PDF.');
+            }
+          } catch {
+            setErrorMsg('Failed to export PDF.');
+          } finally {
+            setTimeout(() => setIsDownloadingPdf(false), 1200);
+          }
+          return;
+        }
+
+        const w = window.open('about:blank', '_blank');
         if (w) {
-          w.document.write(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;">${safeSvg}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);};</script></body></html>`);
+          w.document.write(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#111;">${safeSvg}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);};</script></body></html>`);
           w.document.close();
         }
         setTimeout(() => setIsDownloadingPdf(false), 2000);
@@ -3268,6 +3515,42 @@ const App: React.FC = () => {
     }
   };
 
+  const handleManualUpdateCheck = async () => {
+    if (!isDesktopRuntime || !window.desktopUpdater) return;
+
+    setShowDesktopUpdateCard(true);
+    setDesktopUpdateStatus({ stage: 'checking' });
+
+    try {
+      const result = await window.desktopUpdater.checkForUpdates();
+      if (!result.ok && result.reason === 'dev-mode') {
+        setDesktopUpdateStatus({
+          stage: 'error',
+          message: 'Update checks are available in the installed desktop app.',
+        });
+      } else if (!result.ok && result.message) {
+        setDesktopUpdateStatus({ stage: 'error', message: normalizeDesktopUpdateMessage(result.message) });
+      }
+    } catch (error) {
+      setDesktopUpdateStatus({
+        stage: 'error',
+        message: normalizeDesktopUpdateMessage(error instanceof Error ? error.message : null),
+      });
+    }
+  };
+
+  const handleInstallUpdateNow = async () => {
+    if (!isDesktopRuntime || !window.desktopUpdater) return;
+    try {
+      await window.desktopUpdater.quitAndInstall();
+    } catch {
+      setDesktopUpdateStatus({
+        stage: 'error',
+        message: 'Failed to start update installation.',
+      });
+    }
+  };
+
   const resetApp = () => {
     setAppState(AppState.IDLE);
     setGeneratedImage(null);
@@ -3319,6 +3602,33 @@ const App: React.FC = () => {
         generatedImage ||
         generatedText ||
         referenceImages.length > 0));
+
+  const isDesktopRuntime = Boolean(typeof window !== 'undefined' && window.desktopUpdater?.isDesktop);
+
+  const desktopUpdateLabel = useMemo(() => {
+    if (!desktopUpdateStatus) return null;
+
+    switch (desktopUpdateStatus.stage) {
+      case 'checking':
+        return 'Checking for updates...';
+      case 'available':
+        return `Update ${desktopUpdateStatus.version || ''} is available. Download started.`;
+      case 'downloading': {
+        const percent = Number.isFinite(desktopUpdateStatus.percent ?? NaN)
+          ? Math.round(desktopUpdateStatus.percent as number)
+          : 0;
+        return `Downloading update... ${percent}%`;
+      }
+      case 'downloaded':
+        return `Update ${desktopUpdateStatus.version || ''} is ready to install.`;
+      case 'error':
+        return normalizeDesktopUpdateMessage(desktopUpdateStatus.message);
+      case 'not-available':
+        return 'You are using the latest version.';
+      default:
+        return null;
+    }
+  }, [desktopUpdateStatus]);
 
   const suggestedPrompts = SUGGESTED_GEN_PROMPTS;
   const loopApplied = Boolean((modifiedSvg || generatedText || '').includes('data-loop="1"'));
@@ -5053,6 +5363,49 @@ const App: React.FC = () => {
           accept="image/*"
           className="hidden"
         />
+
+        {isDesktopRuntime && showDesktopUpdateCard && desktopUpdateStatus && desktopUpdateLabel && (
+          <div className="fixed bottom-4 right-4 z-[120] w-[min(92vw,380px)] rounded-2xl border border-brand-500/30 bg-slate-950/95 shadow-2xl backdrop-blur-xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-widest text-brand-300 font-semibold">Desktop Update</div>
+                <div className="mt-1 text-sm text-slate-100 leading-snug">{desktopUpdateLabel}</div>
+                {(desktopAppVersion || desktopUpdateStatus.version) && (
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    Current: {desktopAppVersion || 'unknown'}
+                    {desktopUpdateStatus.version ? ` | Latest: ${desktopUpdateStatus.version}` : ''}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowDesktopUpdateCard(false)}
+                className="p-1 rounded-lg border border-slate-700 text-slate-400 hover:text-slate-100 hover:border-slate-500 transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              {desktopUpdateStatus.stage === 'downloaded' ? (
+                <button
+                  onClick={handleInstallUpdateNow}
+                  className="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition-colors"
+                >
+                  Restart & Install
+                </button>
+              ) : (
+                <button
+                  onClick={handleManualUpdateCheck}
+                  className="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 hover:text-white hover:border-slate-500 text-xs font-semibold transition-colors"
+                >
+                  Check now
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {projectInfoModalOpen && (
           <div className="fixed inset-0 z-[105] bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-300">
